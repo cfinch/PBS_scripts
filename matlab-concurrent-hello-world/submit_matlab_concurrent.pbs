@@ -1,0 +1,65 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=12,pmem=2000M,walltime=00:10:00
+#PBS -N matlab_parallel
+#PBS -j oe
+#PBS -q batch224
+#PBS -A bgoldiez
+#PBS -V
+
+MATLAB_SCRIPT='parallel_example'
+
+##DO NOT EDIT BEYOND THIS POINT. CONTACT SYSADMIN
+
+module load apps/matlab-r2011a
+
+## Enter Working Directory
+cd $PBS_O_WORKDIR
+
+mkdir job$PBS_JOBID
+cd job$PBS_JOBID
+ln -s ../*.m .
+ln -s ../*.mat .
+
+## Record user variables
+echo $PBS_JOBID | cut -d'.' -f1
+cat $PBS_NODEFILE
+
+export NP=`wc -l $PBS_NODEFILE | cut -d'/' -f1`
+echo "Number of Processes: $NP"
+
+## Set up MATLAB distributed computing processes
+export MATLABPARTEMP=/tmp/tmp$PBS_JOBID
+
+# Start MDCE on compute node
+mdce start -clean -mdcedef /apps/CompVis/MATLAB/R2011a/toolbox/distcomp/bin/mdce_def_STOKES.sh
+
+# Start job manager on compute node
+startjobmanager -clean -name MyJobManager -v
+
+# Start worker daemons
+for (( i=1; i<=$NP; i++)); do
+    echo "Starting worker process $i";
+    startworker -jobmanagerhost localhost -jobmanager MyJobManager -name worker$i;
+done
+
+## Set up up Matlab command line (NOTE: JVM is required!)
+MATLAB_CMD="matlab -nodisplay -r "
+MATLAB_CMD="$MATLAB_CMD $MATLAB_SCRIPT"
+echo $MATLAB_CMD
+
+## Run
+eval $MATLAB_CMD > matlab_output.log
+
+## Cleanup
+sleep 3
+for (( i=1; i<=$NP; i++)); do
+    echo "Stopping worker process $i";
+    stopworker -clean -name worker$i;
+done
+
+stopjobmanager -clean -name MyJobManager
+
+mdce stop -clean
+
+echo "Cleaning up $MATLABPARTEMP"
+rm -rf $MATLABPARTEMP
