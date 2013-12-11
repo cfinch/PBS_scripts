@@ -1,0 +1,8 @@
+This repository contains example PBS submit scripts that I have used to submit various
+types of jobs on a cluster with the Torque resource manager.  They may work with other
+resource managers, but I make no guarantees.
+
+   Craig Finch
+   STOKES Advanced Research Computing Center
+   Institute for Simulation and Training
+   University of Central Florida
